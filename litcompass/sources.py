@@ -71,6 +71,7 @@ class Http:
 
     def get(self, url: str, headers: dict | None = None, tries: int = 4) -> requests.Response | None:
         host = url.split("/")[2]
+        last_err = None
         for attempt in range(tries):
             wait = self.MIN_INTERVAL.get(host, 0.3) - (time.monotonic() - self.last.get(host, 0))
             if wait > 0:
@@ -80,6 +81,7 @@ class Http:
             try:
                 r = self.s.get(url, headers=headers or {}, timeout=60)
             except requests.RequestException as e:
+                last_err = e
                 log.warning("network error %s: %s", host, e)
                 time.sleep(2 ** attempt * 2)
                 continue
@@ -98,7 +100,7 @@ class Http:
                 time.sleep(2 ** attempt * 3)
                 continue
             raise SourceError(f"HTTP {r.status_code} from {url}")
-        raise SourceError(f"too many failed attempts: {url}")
+        raise SourceError(f"too many failed attempts: {url}" + (f" (last error: {last_err})" if last_err else ""))
 
     def get_json(self, url: str, headers: dict | None = None):
         r = self.get(url, headers)

@@ -8,6 +8,16 @@ import sys
 from . import __version__
 from . import check, inspect_cmd, progress, reading_list, report, rescore, run, seeds, status, study_plan, vocab
 from .config import ConfigError, create, list_projects, active_slug, resolve, set_active
+from .sources import SourceError
+
+
+def _use_system_certificates():
+    """Trust the operating system's certificate store (corporate proxies that inspect HTTPS)."""
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:   # not installed or not supported: fall back to certifi
+        pass
 
 
 def _init(a):
@@ -151,6 +161,7 @@ def main(argv: list[str] | None = None):
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
+    _use_system_certificates()
     a = parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO if (a.verbose or a.cmd == "run") else logging.WARNING,
                         format="%(asctime)s %(levelname)s %(message)s")
@@ -161,6 +172,11 @@ def main(argv: list[str] | None = None):
             a.fn(a)
     except ConfigError as e:
         sys.exit(f"error: {e}")
+    except SourceError as e:
+        hint = ""
+        if "certificate" in str(e).lower() or "ssl" in str(e).lower():
+            hint = "\nhint: a proxy inspects HTTPS: `python -m pip install --user truststore` and retry"
+        sys.exit(f"network error: {e}{hint}")
 
 
 if __name__ == "__main__":

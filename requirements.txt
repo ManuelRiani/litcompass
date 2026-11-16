@@ -3,3 +3,4 @@ PyYAML>=6.0
 networkx>=3.2
 numpy>=1.26
 scipy>=1.11
+truststore>=0.9   # use the OS certificate store (needed behind corporate HTTPS proxies)
