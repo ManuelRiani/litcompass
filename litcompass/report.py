@@ -168,8 +168,10 @@ def build_report(project: Project, quiet: bool = False) -> str | None:
           f"| Rejected by the relevance filter | {st.count('rejected')} |",
           f"| Citations inside the graph | {G.number_of_edges()} |",
           f"| Research threads (clusters ≥ {rcfg['min_cluster_size']} papers) | {len(big)} |", ""]
-    depth = Counter(st.nodes[d].get("depth", 0) for d in core)
-    L += ["Distance from the seeds: " + ", ".join(f"wave {k}: {v}" for k, v in sorted(depth.items())), ""]
+    waves = st.waves()
+    L += ["Papers per wave (distance from the seeds), with the share of screened papers admitted: "
+          + ", ".join(f"wave {w['wave']}: {w['core']}" + (f" ({100 * w['rate']:.0f}%)" if w["rate"] is not None and w["wave"] else "")
+                      for w in waves if w["core"]), ""]
 
     L += ["## Foundational papers", "",
           "Sorted by PageRank on the internal graph: being cited by papers that are themselves central weighs more.", ""]

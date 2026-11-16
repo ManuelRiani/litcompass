@@ -124,3 +124,44 @@ def test_full_pipeline(project):
     yaml.safe_dump(cfg, open(project.config_path, "w"))
     n_core, gained, lost = rescore.rescore(project)
     assert n_core == 1 and lost > 0                   # only the seed survives
+
+
+def _set_limits(project, **lim):
+    cfg = yaml.safe_load(open(project.config_path))
+    cfg["limits"].update(lim)
+    yaml.safe_dump(cfg, open(project.config_path, "w"))
+
+
+def test_no_depth_limit_saturates(project):
+    _set_limits(project, max_depth=None)
+    assert Runner(project, 1, sources=FakeSources()).run() == "saturated"
+    from litcompass.store import Store
+    st = Store.load(project.data_dir)
+    waves = {w["wave"]: w for w in st.waves()}
+    assert waves[0]["core"] == 1 and all(w["candidate"] == 0 for w in waves.values())
+    assert "10.1/a4" not in st.core()
+
+
+def test_node_cap_keeps_admissible_papers_pending(project):
+    _set_limits(project, max_depth=None, max_core_nodes=3)
+    assert Runner(project, 1, sources=FakeSources()).run() == "max_core_nodes"
+    from litcompass.store import Store
+    st = Store.load(project.data_dir)
+    assert st.count("core") == 3
+    # nearest wave first: everything admitted is a direct neighbour of the seed
+    assert all(st.nodes[d].get("depth", 0) <= 1 for d in st.core())
+    # raising the cap resumes from the pending papers
+    _set_limits(project, max_core_nodes=100)
+    assert Runner(project, 1, sources=FakeSources()).run() == "saturated"
+    assert Store.load(project.data_dir).count("core") > 3
+
+
+def test_journal_files(project):
+    from litcompass import journal
+    assert os.path.exists(project.path("DIARY.md")) and os.path.exists(project.path("WIP.md"))
+    assert journal.open_items(project)                       # template has a first step
+    with open(project.path("DIARY.md"), "a", encoding="utf-8") as f:
+        f.write("\n## 2026-11-16 — first\n- Done: a\n\n## 2026-11-17 — second\n- Done: b\n")
+    assert journal.last_entries(project, 1).startswith("## 2026-11-17")
+    os.remove(project.path("WIP.md"))
+    assert journal.ensure(project) == [project.path("WIP.md")]

@@ -37,9 +37,9 @@ seeds:
   - {doi: 10.1007/978-90-481-9395-0_4, note: "Theory of the Pierce oscillator"}
 
 limits:
-  max_depth: 2
-  max_minutes: 30
   max_core_nodes: 6000
+  max_depth: null           # the original private graph used 2: 17 seeds -> 422 -> 3393 papers
+  max_minutes: 30
   checkpoint_minutes: 5
   forward_max_cited_by: 3000
 

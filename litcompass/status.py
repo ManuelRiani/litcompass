@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import random
 
-from . import progress
-from .config import Project
+from . import journal, progress
+from .config import Project, depth_limit
 from .store import Store
 
 
@@ -15,6 +15,7 @@ def cmd(project: Project, a):
     cfg = project.load_config()
     st = Store.load(project.data_dir)
     lim, rel = cfg["limits"], cfg["relevance"]
+    maxd = depth_limit(lim)
     core = st.count("core")
     print(f"# Status — {cfg['project'].get('title') or project.slug} ({project.slug})\n")
     print(f"- seeds: {len(cfg['seeds'])}")
@@ -23,7 +24,8 @@ def cmd(project: Project, a):
         print("\nNext: `python -m litcompass check --fetch`, then `python -m litcompass run --max-minutes 15`")
         return
     expandable = sum(1 for n in st.nodes.values()
-                     if n.get("status") == "core" and not n.get("expanded") and n.get("depth", 0) < lim["max_depth"])
+                     if n.get("status") == "core" and not n.get("expanded")
+                     and (maxd is None or n.get("depth", 0) < maxd))
     links = [st.core_links(d) for d, n in st.nodes.items() if n.get("status") == "candidate"]
     linked2 = sum(1 for x in links if x >= 2)
     linked1 = sum(1 for x in links if x >= 1)
@@ -37,9 +39,27 @@ def cmd(project: Project, a):
         phase, nxt = (f"building ({expandable} to expand, {linked1} candidates to screen)",
                       "`python -m litcompass run` again (each run resumes where the last one stopped)")
     else:
-        phase, nxt = ("complete at max_depth", "`python -m litcompass study-plan`; later, "
-                      "`python -m litcompass run --refresh 50` to catch new papers")
+        phase = "saturated: no admissible paper left at the frontier" if maxd is None else f"complete at max_depth {maxd}"
+        nxt = ("`python -m litcompass study-plan`; later, `python -m litcompass run --refresh 50` to catch new papers")
+    print(f"- limits: {cap} papers, " + ("no depth limit" if maxd is None else f"max_depth {maxd}"))
     print(f"- phase: {phase}")
+
+    waves = st.waves()
+    if waves:
+        print("\n## Waves (distance from the seeds)\n")
+        print("| wave | admitted | expanded | rejected | pending | admission rate |")
+        print("|---|---|---|---|---|---|")
+        for w in waves:
+            rate = f"{100 * w['rate']:.1f}%" if w["rate"] is not None else "—"
+            print(f"| {w['wave']} | {w['core']} | {w['expanded']} | {w['rejected']} | {w['candidate']} | {rate} |")
+        screened = [w for w in waves if w["wave"] > 0 and w["screened"] >= 100]
+        if screened and screened[-1]["rate"] is not None and screened[-1]["rate"] < 0.02:
+            print(f"\nWave {screened[-1]['wave']} admits under 2% of what it screens: the frontier is saturating "
+                  "(fine), or the filter is too strict (check the best rejected with --samples).")
+        if len(screened) >= 2 and screened[-1]["rate"] is not None and screened[-2]["rate"] \
+                and screened[-1]["rate"] > 1.5 * screened[-2]["rate"] and screened[-1]["rate"] > 0.15:
+            print(f"\nWave {screened[-1]['wave']} admits more than the previous one: possible topic drift, "
+                  "check the admitted samples (--samples) and add negative terms.")
 
     rows = st.runs()
     if rows:
@@ -75,4 +95,8 @@ def cmd(project: Project, a):
                   f"{(n.get('title') or '')[:110]}")
         print(f"\nLegend: [score|strong-term score|links to the graph]. Thresholds: vocabulary ≥{rel['admit_score']}, "
               f"linked ≥2 and ≥{rel['admit_score_linked']}, linked ≥{rel['admit_links_any']} and ≥0.")
+    items = journal.open_items(project)
+    if items:
+        print(f"\n## Open items in WIP.md ({len(items)})\n")
+        print("\n".join(items[:6]) + ("\n…" if len(items) > 6 else ""))
     print(f"\nNext: {nxt}")

@@ -100,6 +100,25 @@ class Store:
     def count(self, status: str) -> int:
         return sum(1 for n in self.nodes.values() if n.get("status") == status)
 
+    def waves(self) -> list[dict]:
+        """Per expansion wave (distance from the seeds): admitted, rejected, pending, expanded, admission rate."""
+        from collections import defaultdict
+        w = defaultdict(lambda: {"core": 0, "rejected": 0, "candidate": 0, "unresolved": 0, "expanded": 0})
+        for n in self.nodes.values():
+            d = n.get("depth")
+            if d is None or n.get("status") not in ("core", "rejected", "candidate", "unresolved"):
+                continue
+            w[d][n["status"]] += 1
+            if n.get("status") == "core" and n.get("expanded"):
+                w[d]["expanded"] += 1
+        out = []
+        for d in sorted(w):
+            r = w[d]
+            screened = r["core"] + r["rejected"]
+            out.append({"wave": d, **r, "screened": screened,
+                        "rate": (r["core"] / screened) if screened else None})
+        return out
+
     def core_digraph(self):
         import networkx as nx
         core = self.core()

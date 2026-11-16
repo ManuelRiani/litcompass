@@ -16,7 +16,7 @@ Select the project first: `python -m litcompass projects` (`use <slug>` or `-p <
 |---|---|
 | building | continue with runs (below) |
 | stopped at max_core_nodes | ask the user: raise `limits.max_core_nodes`, or tighten the filter and `rescore` |
-| complete at max_depth | the graph is done: hand over to `litcompass-study`; maintenance with `--refresh` |
+| saturated / complete at max_depth | the graph is done: hand over to `litcompass-study`; maintenance with `--refresh` |
 | runs ending with `error:` | read the message; network errors are retried next run; a suspended OpenAlex falls back to Crossref |
 
 ## Continue building
@@ -25,6 +25,14 @@ Select the project first: `python -m litcompass projects` (`use <slug>` or `-p <
 the report. ~1–2 requests per second: 8 minutes ≈ 600–900 papers screened. Long builds: suggest running
 `python -m litcompass run --max-minutes 30` from the user's own terminal, or the optional GitHub Action
 (`.github/workflows/expand.yml`, see `docs/ARCHITECTURE.md`).
+
+## Watch the waves
+
+`status` prints, per wave, admitted / rejected / pending and the admission rate. Read it at every build session:
+- the rate usually falls wave after wave: the frontier is saturating, which is the expected end;
+- a rate that **rises** in an outer wave, or samples drifting to a neighbouring field, means topic drift: add negative
+  terms or strengthen the positive ones, `rescore`, then continue;
+- a rate near 0 already at wave 1 means the filter is too strict for the seeds' neighbourhood.
 
 ## Tune the filter
 
@@ -45,7 +53,8 @@ fields; `weak_cap` limits generic words. A seed that stops scoring is a sign the
 ## Scope changes (ask first)
 
 - **Seeds**: `seeds search` → `seeds add DOI` / `seeds remove DOI`, then `rescore` and a run.
-- **Depth**: `limits.max_depth` +1 multiplies the graph size; propose it only if the study plan feels thin.
+- **Size**: `limits.max_core_nodes` is the size of the graph; raise it if the build stops at the cap and the last
+  wave still admits relevant papers. `limits.max_depth` (default `null`) is only for a hard perimeter.
 - **Threads too coarse/fine**: `report.resolution` (higher = more, smaller threads), then `python -m litcompass report`.
   Labels polluted by the field's name: add it to `report.generic_terms`.
 

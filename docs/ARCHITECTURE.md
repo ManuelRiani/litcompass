@@ -37,16 +37,24 @@ AGENTS.md CLAUDE.md .github/copilot-instructions.md   agent instructions
 
 ## 3. Expansion (`run.py`)
 
-1. Seeds enter at depth 0 (metadata fetched once).
-2. Loop until time is up, the cap is hit or nothing is left:
-   1. screen candidates linked to ≥ 2 graph papers, most linked first;
-   2. else expand the unexpanded graph paper with the lowest depth (seeds first, then most linked, then most
-      cited): references always; citing papers only for seeds and for papers that are relevant
-      (`score ≥ admit_score_linked`) and not hubs (`cited_by ≤ forward_max_cited_by`);
-   3. else screen candidates with a single link.
-3. Papers at `max_depth` are admitted but not expanded. Checkpoint every `checkpoint_minutes`; every run is logged
-   in `runs.csv` and resumes from the saved state.
-4. **Refresh** (`--refresh K`): re-downloads the citing papers of the K most central papers whose last refresh is
+1. Seeds enter at wave (depth) 0 (metadata fetched once).
+2. Breadth-first by waves, until time is up, the cap is hit or nothing is left:
+   1. expand every admitted paper of the nearest wave (seeds first, then most linked, then most cited): references
+      always; citing papers only for seeds and for papers that are relevant (`score ≥ admit_score_linked`) and not
+      hubs (`cited_by ≤ forward_max_cited_by`);
+   2. screen every candidate discovered by that wave, best connected first (screening after the whole wave is
+      expanded means each candidate is judged with all its links known);
+   3. move to the next wave.
+3. Stop conditions: `max_core_nodes` (the main one: the size of the graph), **saturation** (no candidate passes the
+   filter, the frontier closes by itself), or the optional `max_depth`. Because waves are processed in order, a graph
+   cut by the cap contains the nearest papers, and in the last wave the best connected ones. Admissible papers found
+   after the cap stay `candidate`: raising the cap resumes from them.
+4. Why no depth limit by default: citation distance is not topical distance. A narrow topic can be exhausted at
+   distance 2 while relevant work sits at 3; a broad topic explodes at 2 (×8 per wave in the original MEMS graph).
+   Relevance is the filter's job; size is the cap's. The depth is still tracked, as a drift indicator: `status`
+   prints admitted/screened per wave and warns when the rate jumps up (drift) or falls under 2% (saturation).
+5. Checkpoint every `checkpoint_minutes`; every run is logged in `runs.csv` and resumes from the saved state.
+6. **Refresh** (`--refresh K`): re-downloads the citing papers of the K most central papers whose last refresh is
    older than `--min-age-days`; new papers go through the normal filter and expansion. This is the maintenance mode
    once the graph is complete.
 
@@ -97,6 +105,14 @@ to look for in it, based on abstracts, adapted to the user's stated background.
   `.claude/skills/`; GitHub Copilot (VS Code, CLI, coding agent) reads `.github/skills/` and `.claude/skills/`,
   so one copy serves both. `.github/prompts/*.prompt.md` expose the same workflows as `/` commands in VS Code
   and simply link to the SKILL.md files.
+
+## 7b. Session journal
+
+Agents have no memory between chats, and the user may switch between Claude Code and Copilot. Each project therefore
+keeps `DIARY.md` (append-only log, one entry per session) and `WIP.md` (open items and the first step of the next
+session, rewritten at every close). `litcompass journal` prints both and creates them if missing (projects created
+before this feature); `status` lists the open WIP items. The close procedure is the `litcompass-close` skill,
+triggered when the user says they want to close the chat.
 
 ## 8. Running in the cloud (optional)
 

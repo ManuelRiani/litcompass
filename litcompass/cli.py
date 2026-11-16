@@ -6,7 +6,7 @@ import logging
 import sys
 
 from . import __version__
-from . import check, inspect_cmd, progress, reading_list, report, rescore, run, seeds, status, study_plan, vocab
+from . import check, inspect_cmd, journal, progress, reading_list, report, rescore, run, seeds, status, study_plan, vocab
 from .config import ConfigError, create, list_projects, active_slug, resolve, set_active
 from .sources import SourceError
 
@@ -149,6 +149,10 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--as", dest="status", choices=progress.STATUSES, default="read")
     s.add_argument("--note", default="")
     s.set_defaults(fn=progress.cmd_mark)
+
+    s = sub.add_parser("journal", help="open items of WIP.md and last DIARY.md entries")
+    s.add_argument("--entries", type=int, default=1)
+    s.set_defaults(fn=journal.cmd)
 
     s = sub.add_parser("progress", help="show reading progress")
     s.set_defaults(fn=progress.cmd_progress)

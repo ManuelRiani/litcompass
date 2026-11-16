@@ -25,7 +25,7 @@ TEMPLATE = os.path.join(ROOT, "templates", "project.yaml")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]{0,63}$")
 
 DEFAULT_LIMITS = {
-    "max_depth": 2,
+    "max_depth": None,   # None = no depth limit: waves continue until max_core_nodes or saturation
     "max_minutes": 30,
     "max_core_nodes": 3000,
     "checkpoint_minutes": 5,
@@ -38,6 +38,14 @@ DEFAULT_STUDY = {"focus": "", "recent_years": 4}
 
 class ConfigError(Exception):
     pass
+
+
+def depth_limit(limits: dict) -> int | None:
+    """limits.max_depth as an int, or None when the expansion has no depth limit."""
+    v = limits.get("max_depth")
+    if v is None or str(v).strip().lower() in ("", "none", "null"):
+        return None
+    return int(v)
 
 
 def projects_home() -> str:
@@ -136,6 +144,8 @@ def create(slug: str, title: str = "", description: str = "") -> Project:
     txt = txt.replace("    __DESCRIPTION__", desc)
     with open(p.config_path, "w", encoding="utf-8") as f:
         f.write(txt)
+    from .journal import ensure
+    ensure(p, title or slug)
     return p
 
 

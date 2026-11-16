@@ -18,9 +18,18 @@ prompt files in `.github/prompts/`. If your tool cannot load skills, open the SK
 | `litcompass-setup` | The user starts a new project: brief → seeds → vocabulary → pilot run. |
 | `litcompass-build` | Growing or maintaining a graph: runs, status, filter tuning, refresh, caps. |
 | `litcompass-study` | The graph exists: study plan, reading lists, study advice, questions about the literature. |
+| `litcompass-close` | The user wants to close the chat/session: update DIARY.md, rewrite WIP.md for the next chat. |
 
-At the start of a session with no clear request, run `python -m litcompass projects` and
-`python -m litcompass status`, then propose the next step that `status` prints.
+## Sessions: start and close
+
+Each project keeps a journal: `DIARY.md` (what was done, append-only) and `WIP.md` (what is open).
+
+- **Start of a session**: run `python -m litcompass projects`, `python -m litcompass status` and
+  `python -m litcompass journal`, then propose the step under "Next session starts with" in WIP.md (or, if there is
+  none, the next step printed by `status`).
+- **Close of a session**: whenever the user says they want to close or end the chat or session, or that they are
+  done for now (in any language: "chiudiamo", "fine sessione", "basta per oggi"…), run the `litcompass-close`
+  procedure before anything else: append the diary entry, rewrite WIP.md, show both to the user.
 
 ## Commands
 
@@ -39,11 +48,13 @@ python -m litcompass study-plan [--focus REGEX]      # -> projects/<slug>/report
 python -m litcompass reading-list [--topic REGEX]    # by thread, or by topic (personalized PageRank)
 python -m litcompass paper DOI | find REGEX          # look inside the graph
 python -m litcompass mark DOI --as read|reading|skip # study progress
+python -m litcompass journal                         # WIP.md open items + last DIARY.md entry
 python -m litcompass run --refresh 50                # maintenance: catch new papers citing the core
 ```
 
-Files of a project (`projects/<slug>/`): `project.yaml` (yours and the user's), `data/` (code only),
-`reports/overview.md` and `reports/study_plan.md`, `exports/core_papers.csv`, `study/progress.csv`.
+Files of a project (`projects/<slug>/`): `project.yaml` (yours and the user's), `DIARY.md` and `WIP.md` (yours, see
+above), `data/` (code only), `reports/overview.md` and `reports/study_plan.md`, `exports/core_papers.csv`,
+`study/progress.csv`.
 
 ## Rules that are not negotiable
 
@@ -59,8 +70,8 @@ Files of a project (`projects/<slug>/`): `project.yaml` (yours and the user's), 
 4. **No bulk downloads from publishers**, no scraping of PDFs. Full texts are obtained by the user, one at a time;
    open-access links come from the data. **Never commit PDFs** (`*.pdf` is in `.gitignore`).
 5. **Do not edit `data/` by hand**: it is managed by `run` and `rescore`. Change behaviour through `project.yaml`.
-6. **Ask before decisions that cost the user time or scope**: adding/removing seeds, raising `max_depth`
-   (each wave multiplies the graph), raising `max_core_nodes`, deleting a project.
+6. **Ask before decisions that cost the user time or scope**: adding/removing seeds, raising `max_core_nodes`
+   (the size of the graph), setting or raising `max_depth`, deleting a project.
 7. Keep the console output in mind: large files (`nodes.jsonl`, `edges.csv`) are read with the commands above or
    with grep, never loaded whole into the conversation.
 

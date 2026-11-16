@@ -17,10 +17,12 @@ project:
 # Add them with `python -m litcompass seeds add DOI --note "why"` (the DOI is verified before it is written here).
 seeds: []
 
+# The graph grows in waves (distance from the seeds), nearest wave first, until it reaches max_core_nodes or the
+# relevance filter admits nothing more ("saturated"). `python -m litcompass status` shows the admission rate per wave.
 limits:
-  max_depth: 2              # expansion waves from the seeds (papers at max depth enter but are not expanded)
+  max_core_nodes: 3000      # size of the graph: the main stop
+  max_depth: null           # optional hard limit on waves (e.g. 2); null = no limit
   max_minutes: 30           # duration of one run; runs resume where the previous one stopped
-  max_core_nodes: 3000      # cap on admitted papers
   checkpoint_minutes: 5     # intermediate save
   forward_max_cited_by: 3000  # papers cited more than this (seeds excluded) are hubs: their citing papers are skipped
 

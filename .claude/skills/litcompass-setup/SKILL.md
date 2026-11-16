@@ -62,8 +62,9 @@ Then edit `projects/<slug>/project.yaml`: fill `project.description` (concrete: 
 3. Fix terms accordingly (`python -m litcompass vocab --from core --contrast rejected` and
    `--from rejected --contrast core` show discriminating words), then `python -m litcompass rescore`.
    Repeat until the samples look right (usually 1–3 rounds).
-4. Agree the limits: `max_depth` 2 is a good default (1 = only direct neighbours of the seeds, 3 = very large);
-   `max_core_nodes` 1000–3000 for a study project.
+4. Agree the size: `limits.max_core_nodes` is the main stop (1000–3000 for a study project, more for a thesis-level
+   map). The graph grows wave by wave until that size or until the filter admits nothing more (saturated).
+   `max_depth` stays `null` unless the user wants a hard perimeter (e.g. 1 = only direct neighbours of the seeds).
 
 ## 6. Hand over
 

@@ -42,6 +42,11 @@ Claude Code and Copilot) and as VS Code prompt files in `.github/prompts/`:
 | `/litcompass-setup` | Interview → project brief → verified seeds → relevance vocabulary → pilot run → first tuning |
 | `/litcompass-build` | Continue building, status, filter tuning with samples, caps, monthly refresh |
 | `/litcompass-study` | Study plan tailored to your goals and background, reading lists, Q&A with DOIs, progress |
+| `/litcompass-close` | End of session: appends to the project's `DIARY.md`, rewrites `WIP.md` for the next chat |
+
+Each project keeps a **journal**: `DIARY.md` (what was done, session by session) and `WIP.md` (what is open and how
+the next session starts). Agents read WIP.md when a session starts and update both when you say you want to close
+the chat, so a new chat, in Claude Code or Copilot, picks up where the last one stopped.
 
 The agent instructions (`AGENTS.md`, imported by `CLAUDE.md` and referenced by `.github/copilot-instructions.md`)
 forbid the agent from inventing papers: every DOI comes from a search result or from you, and every statement
@@ -81,11 +86,15 @@ python -m litcompass mark 10.xxxx/yyyy --as read               # track progress
 ## How it works
 
 1. **Seeds** (`project.yaml → seeds`) enter the graph at depth 0.
-2. Each admitted paper is **expanded**: its references and, if it is relevant and not a mega-hub, its citing papers.
+2. The graph grows **in waves** (distance from the seeds), nearest wave first: every admitted paper of a wave is
+   **expanded** (its references and, if it is relevant and not a mega-hub, its citing papers), then every paper it
+   discovered is screened, then the next wave starts.
 3. Every discovered paper is **screened** by a deterministic filter: weighted regex terms on title and abstract
    (title counts double, negative weights for off-topic fields), combined with how many graph papers it is linked
    to. A rejected paper can come back later if it becomes well connected.
-4. Expansion proceeds in waves up to `max_depth`, most central papers first. Runs are resumable.
+4. It stops at `max_core_nodes` papers (the size you want) or when the filter admits nothing more at the frontier
+   (*saturated*). An optional `max_depth` caps the number of waves. `status` shows the admission rate per wave, to
+   spot topic drift. Runs are resumable.
 5. **Report**: PageRank for importance, Louvain clustering on direct citation + bibliographic coupling +
    co-citation for research threads, labels from distinctive title terms.
 6. **Study plan**: reviews/books for orientation, the most central papers in chronological order, the key papers of
@@ -102,6 +111,7 @@ clone). Set `LITCOMPASS_HOME` to keep projects elsewhere, e.g. in a private repo
 | File | Content |
 |---|---|
 | `project.yaml` | brief, seeds, relevance filter, limits — the only file you (or your agent) edit |
+| `DIARY.md` · `WIP.md` | session journal: what was done, what is open (written by the agent at every close) |
 | `reports/overview.md` | the map |
 | `reports/study_plan.md` | the study plan, with checkboxes |
 | `exports/core_papers.csv` · `exports/core.graphml` | table and graph for Excel, Gephi, Cytoscape, networkx |

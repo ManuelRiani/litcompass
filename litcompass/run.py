@@ -2,11 +2,13 @@
 
     python -m litcompass run [--max-minutes N] [--refresh K] [--min-age-days D]
 
-Loop:
-  1. screen the candidates linked to at least 2 graph papers (metadata + relevance filter)
-  2. otherwise expand the highest-priority graph paper (references + citing papers from OpenCitations)
-  3. otherwise screen the candidates with a single link
-Stops when time is up, the graph is complete (max depth reached) or the node cap is hit.
+Loop, breadth-first by waves (wave = distance from the seeds):
+  1. expand every admitted paper of the nearest wave (references + citing papers from OpenCitations)
+  2. screen every candidate it discovered (metadata + relevance filter), best connected first
+  3. move to the next wave
+Stops when time is up, when the node cap (limits.max_core_nodes) is hit, or when nothing is left to screen or expand:
+"saturated", the relevance filter has closed the frontier. The optional limits.max_depth stops the expansion after a
+fixed number of waves instead ("complete"); by default there is no depth limit.
 
 --refresh K: before the loop, re-download the citing papers of the K most central graph papers whose last
 refresh is older than --min-age-days. This is the maintenance mode: once the graph is complete it catches new work.
@@ -17,7 +19,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from .config import Project
+from .config import Project, depth_limit
 from .relevance import SKIP_TYPES, Relevance
 from .sources import Budget, Http, Sources, SourceError
 from .store import Store
@@ -34,7 +36,7 @@ class Runner:
         self.project = project
         self.cfg = project.load_config()
         lim = self.cfg["limits"]
-        self.max_depth = int(lim["max_depth"])
+        self.max_depth = depth_limit(lim)   # None = no depth limit
         self.max_core = int(lim["max_core_nodes"])
         self.ckpt = float(lim["checkpoint_minutes"])
         self.forward_max = int(lim["forward_max_cited_by"])
@@ -70,26 +72,44 @@ class Runner:
         self.rel.rescore_node(n)
         return True
 
-    # ---------- screening ----------
-    def pending(self, min_links: int) -> list[str]:
-        out = []
+    # ---------- wave scheduling ----------
+    def next_step(self) -> tuple[str | None, list[str]]:
+        """Breadth-first by waves. A wave is fully expanded, then all the candidates it discovered are screened
+        (best connected first), then the next wave is expanded. Returns ("expand"|"screen"|None, DOIs)."""
+        exp, cands = [], []
         for doi, n in self.st.nodes.items():
-            if n.get("status") == "candidate":
+            s = n.get("status")
+            if s == "core" and not n.get("expanded") and \
+                    (self.max_depth is None or n.get("depth", 0) < self.max_depth):
+                exp.append((n.get("depth", 0), not n.get("seed"), -self.st.core_links(doi),
+                            -(n.get("cited_by") or 0), doi))
+            elif s == "candidate":
                 links = self.st.core_links(doi)
-                if links >= min_links:
-                    out.append((-links, n.get("depth", 99), doi))
-        return [d for _, _, d in sorted(out)]
+                if links:
+                    cands.append((n.get("depth", 99), -links, doi))
+        d_exp = min(e[0] for e in exp) if exp else float("inf")
+        d_cand = min(c[0] for c in cands) if cands else float("inf")
+        if cands and d_cand <= d_exp:
+            return "screen", [c[2] for c in sorted(c for c in cands if c[0] == d_cand)[:50]]
+        if exp:
+            return "expand", [e[4] for e in sorted(e for e in exp if e[0] == d_exp)[:10]]
+        return None, []
 
     def screen(self, doi: str):
         n = self.st.nodes[doi]
         self.stats["screened"] += 1
-        if not self.fetch_meta(n):
+        if n.get("meta_src"):          # metadata already known (e.g. held back by the node cap)
+            self.rel.rescore_node(n)
+        elif not self.fetch_meta(n):
             n["status"] = "unresolved"
             return
         self.decide(n)
 
     def decide(self, n: dict):
-        if self.rel.admissible(n, self.st.core_links(n["doi"])) and self.st.count_core < self.max_core:
+        if self.rel.admissible(n, self.st.core_links(n["doi"])):
+            if self.st.count_core >= self.max_core:
+                n["status"] = "candidate"   # admissible but over the cap: stays pending until the cap is raised
+                return
             n.update(status="core", expanded=False, admitted=today(),
                      depth=self.st.core_depth(n["doi"]) or n.get("depth", 1))
             self.st.count_core += 1
@@ -99,15 +119,6 @@ class Runner:
             self.stats["rejected"] += 1
 
     # ---------- expansion ----------
-    def next_to_expand(self) -> str | None:
-        best = None
-        for doi, n in self.st.nodes.items():
-            if n.get("status") == "core" and not n.get("expanded") and n.get("depth", 0) < self.max_depth:
-                key = (n.get("depth", 0), not n.get("seed"), -self.st.core_links(doi), -(n.get("cited_by") or 0))
-                if best is None or key < best[0]:
-                    best = (key, doi)
-        return best[1] if best else None
-
     def wants_forward(self, n: dict) -> bool:
         """Download citing papers only for seeds and for relevant, non-hub papers."""
         return bool(n.get("seed") or (n.get("score", 0) >= self.cfg["relevance"]["admit_score_linked"]
@@ -177,7 +188,8 @@ class Runner:
                      self.budget.requests, self.budget.elapsed_min())
 
     def run(self, refresh: int = 0, min_age_days: int = 30) -> str:
-        reason = "complete"
+        # nothing left to screen or expand: "saturated" (no depth limit) or "complete" (depth limit reached)
+        reason = "saturated" if self.max_depth is None else "complete"
         try:
             self.init_seeds()
             if refresh:
@@ -189,22 +201,16 @@ class Runner:
                 if self.st.count_core >= self.max_core:
                     reason = "max_core_nodes"   # candidates stay pending: raise the cap to continue
                     break
-                batch = self.pending(min_links=2)[:25]
-                if batch:
-                    for doi in batch:
+                action, dois = self.next_step()
+                if action is None:
+                    break
+                for doi in dois:
+                    if action == "screen":
                         self.screen(doi)
-                        if self.budget.expired():
-                            break
-                elif nxt := self.next_to_expand():
-                    self.expand(nxt)
-                else:
-                    batch = self.pending(min_links=1)[:50]
-                    if not batch:
+                    else:
+                        self.expand(doi)
+                    if self.budget.expired() or self.st.count_core >= self.max_core:
                         break
-                    for doi in batch:
-                        self.screen(doi)
-                        if self.budget.expired():
-                            break
                 self.maybe_checkpoint()
         except SourceError as e:
             log.error("run stopped: %s", e)
