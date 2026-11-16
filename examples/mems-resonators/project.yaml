@@ -1,0 +1,162 @@
+# Example project: piezoelectric bulk-mode MEMS resonators (MHz).
+# This is the configuration that litcompass was born from (a real, tuned filter on a ~3800-paper graph).
+# To try it:  python -m litcompass init mems-resonators  then replace the new project.yaml with this file,
+# or copy the folder:  cp -r examples/mems-resonators projects/   (Windows: xcopy /E /I examples\mems-resonators projects\mems-resonators)
+
+project:
+  title: "Piezoelectric bulk-mode MEMS resonators"
+  description: |
+    Design and simulation of piezoelectric bulk acoustic wave (BAW) and width-extensional / contour-mode MEMS
+    resonators in the MHz range: quality factor and loss mechanisms (anchor loss, thermoelastic damping, Akhiezer),
+    electromechanical coupling (k2eff), temperature compensation of frequency (TCF) with degenerately doped silicon,
+    AlN and ScAlN thin films, and their use as frequency references in oscillators.
+  goals:
+    - "Choose geometry, materials and anchors of a bulk-mode resonator with a high Q and a low TCF"
+    - "Know the state of the art well enough to position a new design against it"
+  background: "Strong in FEM simulation and MEMS physics; less familiar with oscillator circuits."
+
+seeds:
+  # Hopcroft, Nix, Kenny (JMEMS 2010): a hub (~2000 citing papers); citing papers enter only if they pass the filter.
+  - {doi: 10.1109/jmems.2009.2039697, note: "What is the Young's Modulus of Silicon?"}
+  # Bhugra & Piazza (eds.), Piezoelectric MEMS Resonators, Springer 2017 (chapters in scope)
+  - {doi: 10.1007/978-3-319-28688-4_1, note: "AlN thin film processing and basic properties"}
+  - {doi: 10.1007/978-3-319-28688-4_5, note: "Quality factor and coupling"}
+  - {doi: 10.1007/978-3-319-28688-4_7, note: "Laterally vibrating piezoelectric MEMS resonators"}
+  - {doi: 10.1007/978-3-319-28688-4_8, note: "BAW piezoelectric resonators"}
+  - {doi: 10.1007/978-3-319-28688-4_9, note: "Shear piezoelectric MEMS resonators"}
+  - {doi: 10.1007/978-3-319-28688-4_10, note: "Temperature compensation"}
+  - {doi: 10.1007/978-3-319-28688-4_11, note: "Computational modeling challenges"}
+  - {doi: 10.1007/978-3-319-28688-4_12, note: "Fabrication process flows"}
+  # Jaakkola et al. (VTT): degenerately doped silicon for temperature compensation
+  - {doi: 10.1109/tuffc.2014.3007, note: "Doping/temperature-dependent elastic constants of degenerately doped Si"}
+  - {doi: 10.1109/jmems.2015.2443379, note: "Design rules for temperature compensated n-doped Si resonators"}
+  - {doi: 10.1109/ultsym.2011.0486, note: "Temperature compensation of Si MEMS resonators by heavy doping"}
+  # Vittoz, Low-Power Crystal and MEMS Oscillators, Springer 2010: the oscillator branch, behind the same filter
+  - {doi: 10.1007/978-90-481-9395-0_2, note: "Quartz and MEM resonators"}
+  - {doi: 10.1007/978-90-481-9395-0_3, note: "General theory of high-Q oscillators"}
+  - {doi: 10.1007/978-90-481-9395-0_4, note: "Theory of the Pierce oscillator"}
+
+limits:
+  max_depth: 2
+  max_minutes: 30
+  max_core_nodes: 6000
+  checkpoint_minutes: 5
+  forward_max_cited_by: 3000
+
+relevance:
+  weak_cap: 3
+  admit_score: 10
+  admit_score_linked: 6
+  admit_links_any: 5
+  terms:
+    3:
+      - 'bulk acoustic wave'
+      - '\bbaws?\b'
+      - '\bfbars?\b'
+      - 'thin[- ]film bulk acoustic'
+      - 'contour[- ]mode'
+      - 'width[- ]extensional'
+      - 'length[- ]extensional'
+      - 'square[- ]extensional'
+      - 'lam[eé] mode'
+      - 'laterally vibrating'
+      - 'lateral[- ]field excit'
+      - 'temperature coefficient of (?:the )?(?:resonant )?frequency'
+      - '\btcf\b'
+      - 'temperature[- ]compensat'
+      - 'degenerately[- ]doped'
+      - 'heavily[- ]doped silicon'
+      - 'anchor loss'
+      - 'akhiezer'
+      - 'micromechanical (?:oscillator|filter)'
+      - 'mems resonator'
+      - 'micromechanical resonator'
+      - 'microelectromechanical resonator'
+      - 'silicon resonator'
+      - 'mems oscillator'
+      - 'piezoelectric(?:ally)?[- ](?:transduced |actuated |driven |on[- ]silicon )?(?:mems |micromechanical )?resonator'
+    2:
+      - '\baln\b'
+      - 'alumin(?:i)?um nitride'
+      - '\bscaln\b'
+      - 'sc(?:andium)?[- ]?(?:doped )?al(?:umin(?:i)?um)?[- ]?nitride|\bal(?:1-x)?sc(?:x)?n\b'
+      - 'electromechanical coupling'
+      - 'quality factor'
+      - '\bq[- ]factor'
+      - 'motional (?:resistance|impedance)'
+      - 'elastic constants'
+      - 'crystal oscillator'
+      - 'quartz (?:crystal )?resonator'
+      - 'frequency reference'
+      - 'thermoelastic'
+      - 'perfectly matched layer'
+      - 'pierce oscillator'
+    1:
+      - 'resonat'
+      - 'piezoelectric'
+      - '\bmems\b'
+      - 'acoustic'
+      - 'oscillator'
+      - 'phase noise'
+      - 'silicon'
+      - 'finite[- ]element'
+      - 'thin film'
+      - 'timing'
+      - 'damping'
+      - 'phonon'
+      - '\b[mg]hz\b'
+    -3:
+      - 'gyro'
+      - 'accelerometer'
+      - 'magnetometer'
+      - 'gravimeter'
+    -2:
+      - 'quantum'
+      - 'brillouin'
+      - 'smelting|metallurg'
+      - 'pressure sensor'
+      - 'gas sens'
+      - 'mass detection'
+      - 'atomic force'
+      - '\bafm\b'
+      - 'biosens'
+      - 'mass sens'
+      - 'energy harvest'
+      - 'harvester'
+      - 'microfluidic'
+      - '\bpzt\b'
+      - 'lead zirconate'
+      - 'gallium nitride'
+      - '\bgan\b'
+      - 'lithium niobate'
+      - '\blinbo'
+      - 'lithium tantalate'
+      - 'graphene'
+      - 'carbon nanotube'
+      - 'nanowire'
+      - 'optomechanic'
+      - 'solar cell'
+      - 'battery'
+      - '\bcells?\b'
+      - 'tissue'
+    -1:
+      - 'cantilever'
+      - 'ultrasonic transducer'
+      - '\bpmuts?\b'
+      - 'rf switch'
+      - 'microphone'
+      - 'nanomechanical'
+      - 'nanoelectromechanical'
+      - '\bnems\b'
+      - 'microbeam'
+      - 'couple stress'
+      - 'nonlocal'
+
+report:
+  resolution: 1.6
+  min_cluster_size: 5
+  generic_terms: [resonator, resonators, mems, micro, microelectromechanical, mode, modes]
+
+study:
+  focus: ""
+  recent_years: 4

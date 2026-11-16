@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+*.tmp
+*.pdf
+*.PDF
+
+# Your projects stay private by default. To version one (e.g. in a private copy), add:  !projects/<slug>/
+projects/*
+!projects/README.md

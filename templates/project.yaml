@@ -1,0 +1,49 @@
+# litcompass project file. Edit it by hand or let your agent (Claude Code, GitHub Copilot) fill it in with you:
+# run the `litcompass-setup` skill. After changing `relevance`, run `python -m litcompass rescore`.
+
+project:
+  title: "__TITLE__"
+  # The project brief: what you are working on and why you need the literature. Agents read it to choose seeds,
+  # build the vocabulary and tailor the study advice. Be concrete: object, methods, constraints, decisions ahead.
+  description: |
+    __DESCRIPTION__
+  # What you want to be able to do at the end (e.g. "design X", "write the state of the art of a thesis chapter").
+  goals: []
+  # What you already know well and what is new to you: the study plan advice starts from here.
+  background: ""
+
+# Seed papers: the starting points of the graph. 3-15 well-chosen papers beat 50 loose ones:
+# a key review, the 2-5 papers closest to the project, a textbook chapter if it has a DOI.
+# Add them with `python -m litcompass seeds add DOI --note "why"` (the DOI is verified before it is written here).
+seeds: []
+
+limits:
+  max_depth: 2              # expansion waves from the seeds (papers at max depth enter but are not expanded)
+  max_minutes: 30           # duration of one run; runs resume where the previous one stopped
+  max_core_nodes: 3000      # cap on admitted papers
+  checkpoint_minutes: 5     # intermediate save
+  forward_max_cited_by: 3000  # papers cited more than this (seeds excluded) are hubs: their citing papers are skipped
+
+# Relevance filter (deterministic, no LLM).
+# Score = sum of the weights of the terms found; a term in the title counts double.
+# Terms are case-insensitive Python regexes: '\bbaws?\b' matches "BAW" and "BAWs" but not "bawl".
+relevance:
+  weak_cap: 3               # weight-1 terms contribute at most this many points
+  admit_score: 10           # admitted on vocabulary alone (also needs at least one strong term, weight >= 2)
+  admit_score_linked: 6     # admitted if linked to >= 2 graph papers and has a strong term
+  admit_links_any: 5        # admitted if linked to >= 5 graph papers and score >= 0
+  terms:
+    3: []                   # specific to the project: the object, the key phenomena, the distinctive methods
+    2: []                   # important but shared with neighbouring fields
+    1: []                   # generic context words
+    -2: []                  # neighbouring fields you do NOT want (applications, materials, methods out of scope)
+    -3: []                  # clearly off-topic fields that share words with yours
+
+report:
+  resolution: 1.3           # Louvain resolution: higher = more, smaller research threads
+  min_cluster_size: 5
+  generic_terms: []         # words to never use as thread labels (e.g. the field's name)
+
+study:
+  focus: ""                 # optional regex: bends the study plan towards a sub-topic (personalized PageRank)
+  recent_years: 4           # window of the "frontier" stage

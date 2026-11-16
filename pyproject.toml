@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "litcompass"
+dynamic = ["version"]
+description = "Build a citation graph of the literature around your project and get a study plan from it. Free sources only, agent-ready (Claude Code, GitHub Copilot)."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["requests>=2.31", "PyYAML>=6.0", "networkx>=3.2", "numpy>=1.26", "scipy>=1.11"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+litcompass = "litcompass.cli:main"
+
+[tool.setuptools]
+packages = ["litcompass"]
+
+[tool.setuptools.dynamic]
+version = {attr = "litcompass.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
