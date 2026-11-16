@@ -120,6 +120,7 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--fps", type=int, default=10)
     s.add_argument("--labels", type=int, default=12, help="papers labelled 'Author Year' (top PageRank)")
     s.add_argument("--threads", type=int, default=8, help="threads with their own color (max 8)")
+    s.add_argument("--links", type=int, default=2, help="lines drawn per paper (its strongest links)")
     s.add_argument("--lang", default="", help="legend language: en, it (default: project.language)")
     s.add_argument("--width", type=int, default=900)
     s.add_argument("--height", type=int, default=600)

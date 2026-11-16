@@ -29,16 +29,35 @@ SURFACE = "#1a1a19"
 TEXT, TEXT2, MUTED = "#f0efec", "#c3c2b7", "#8b8a83"
 SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767"]
 OTHER = "#5f5e59"
-EDGE = "#8b8a83"   # darker than the white seeds, so they stand out
+EDGE = "#8b8a83"
 
 STRINGS = {
     "en": {"papers": "papers", "citations": "citations", "threads": "threads", "other": "other threads",
            "seed": "seed of the search", "size": "size ∝ citations received in the graph",
-           "labels": "labels: top {n} by PageRank", "ungrouped": "not grouped"},
+           "labels": "labels: top {n} by PageRank", "ungrouped": "not grouped",
+           "lines": "lines: the {k} closest links of each paper"},
     "it": {"papers": "paper", "citations": "citazioni", "threads": "filoni", "other": "altri filoni",
            "seed": "seme della ricerca", "size": "dimensione ∝ citazioni ricevute nel grafo",
-           "labels": "etichette: primi {n} per PageRank", "ungrouped": "non raggruppati"},
+           "labels": "etichette: primi {n} per PageRank", "ungrouped": "non raggruppati",
+           "lines": "linee: i {k} collegamenti più stretti di ogni paper"},
 }
+
+
+def backbone(G: nx.DiGraph, cluster: dict[str, int], k: int = 2) -> list[tuple[str, str]]:
+    """For each paper, the k links to the neighbours it is most similar to (same thread first, then most shared
+    neighbours): a readable skeleton of the citation web. Drawing every citation of a dense graph only produces fog,
+    and linking everyone to the most central papers draws a star around a few hubs."""
+    U = G.to_undirected(as_view=True)
+    nb = {d: set(U.neighbors(d)) for d in U.nodes}
+    keep = set()
+    for d in U.nodes:
+        def key(o):
+            same = cluster.get(o, 0) == cluster.get(d, 0) and cluster.get(d, 0) > 0
+            shared = len(nb[d] & nb[o])
+            return (not same, -shared / math.sqrt(len(nb[o]) + 1), o)
+        for o in sorted(nb[d], key=key)[:k]:
+            keep.add((d, o) if d < o else (o, d))
+    return sorted(keep)
 
 
 def layout3d(G: nx.DiGraph, cluster: dict[str, int], seed: int = 7) -> dict[str, np.ndarray]:
@@ -50,7 +69,7 @@ def layout3d(G: nx.DiGraph, cluster: dict[str, int], seed: int = 7) -> dict[str,
         U.add_edge(a, b, weight=3.0 if same else 1.0)
     n = max(U.number_of_nodes(), 1)
     pos = nx.spring_layout(U, dim=3, weight="weight", seed=seed, iterations=80 if n < 4000 else 50,
-                           k=1.6 / math.sqrt(n))
+                           k=2.4 / math.sqrt(n))
     P = np.array([pos[d] for d in U.nodes])
     P -= np.median(P, axis=0)
     r = np.linalg.norm(P, axis=1)
@@ -62,6 +81,24 @@ def layout3d(G: nx.DiGraph, cluster: dict[str, int], seed: int = 7) -> dict[str,
     return dict(zip(U.nodes, P))
 
 
+def gif_palette(colors: list[str]):
+    """Fixed GIF palette: every hue blended with the dark surface at several opacities, plus grays. An adaptive
+    palette would spend its 256 slots on the gray shades of the lines and wash out the thread colors."""
+    from matplotlib.colors import to_rgb
+    from PIL import Image
+    bg = np.array(to_rgb(SURFACE))
+    out = []
+    for c in colors:
+        rgb = np.array(to_rgb(c))
+        out += [bg + (rgb - bg) * a for a in np.linspace(0.08, 1.0, 18)]
+    out += [np.array([g, g, g]) for g in np.linspace(0.1, 0.95, 24)]
+    flat = [int(round(v * 255)) for col in out[:255] for v in col]
+    flat += list(bytes.fromhex(SURFACE[1:])) * (256 - len(flat) // 3)
+    pal = Image.new("P", (1, 1))
+    pal.putpalette(flat[:768])
+    return pal
+
+
 def rotation(theta: float, tilt: float = math.radians(18)) -> np.ndarray:
     c, s = math.cos(theta), math.sin(theta)
     ry = np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
@@ -70,7 +107,7 @@ def rotation(theta: float, tilt: float = math.radians(18)) -> np.ndarray:
     return rx @ ry
 
 
-def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12, max_threads: int = 8,
+def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12, max_threads: int = 8, links: int = 2,
            lang: str = "", width: int = 900, height: int = 600, quiet: bool = False) -> str | None:
     import matplotlib
     matplotlib.use("Agg")
@@ -110,15 +147,15 @@ def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12
     pos = layout3d(G, cluster)
     P = np.array([pos[d] for d in nodes])
     indeg = np.array([G.in_degree(d) for d in nodes], dtype=float)
-    base = 6 + 90 * np.sqrt(indeg / max(indeg.max(), 1))
+    base = 3 + 70 * np.sqrt(indeg / max(indeg.max(), 1))
     seeds = np.array([bool(st.nodes[d].get("seed")) for d in nodes])
-    base[seeds] = np.maximum(base[seeds], 45)
+    base[seeds] = np.maximum(base[seeds], 40)
     cols = np.array([matplotlib.colors.to_rgba(TEXT if seeds[i] else color_of.get(cluster[d], OTHER))
                      for i, d in enumerate(nodes)])
     idx = {d: i for i, d in enumerate(nodes)}
-    E = np.array([(idx[a], idx[b]) for a, b in G.edges], dtype=int).reshape(-1, 2)
-    edge_alpha = float(np.clip(9.0 / math.sqrt(max(len(E), 1)), 0.05, 0.3))
     pr = {r["doi"]: float(r["pagerank"]) for r in rows}
+    E = np.array([(idx[a], idx[b]) for a, b in backbone(G, cluster, links)], dtype=int).reshape(-1, 2)
+    edge_alpha = float(np.clip(11.0 / math.sqrt(max(len(E), 1)), 0.1, 0.35))
     top = [idx[d] for d in sorted(nodes, key=lambda d: -pr.get(d, 0))[:n_labels]]
     tags = [f"{first_author(st.nodes[nodes[i]])} {st.nodes[nodes[i]].get('year') or ''}".strip() for i in top]
 
@@ -154,14 +191,16 @@ def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12
     y -= step * 0.4
     lg.scatter([0.065], [y], s=55, color=TEXT, edgecolors="none")
     lg.text(0.12, y, S["seed"], color=TEXT2, fontsize=8.5, va="center")
-    lg.text(0.04, 0.075, S["size"], color=MUTED, fontsize=7.2, va="top")
+    lg.text(0.04, 0.105, S["size"], color=MUTED, fontsize=7.2, va="top")
+    lg.text(0.04, 0.075, S["lines"].format(k=links), color=MUTED, fontsize=7.2, va="top")
     lg.text(0.04, 0.045, S["labels"].format(n=len(top)), color=MUTED, fontsize=7.2, va="top")
 
-    lines = LineCollection([], colors=EDGE, linewidths=0.4, alpha=edge_alpha)
+    lines = LineCollection([], colors=EDGE, linewidths=0.5, alpha=edge_alpha)
     ax.add_collection(lines)
     dots = ax.scatter([], [], s=[], edgecolors="none")
     texts = [ax.text(0, 0, t, color=TEXT2, fontsize=7.5, ha="center", va="bottom") for t in tags]
 
+    palette = gif_palette([color_of[k] for k in shown] + [OTHER, TEXT, TEXT2, MUTED, EDGE])
     D = 3.4   # camera distance
     images = []
     for f in range(frames):
@@ -173,7 +212,7 @@ def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12
         if len(E):
             lines.set_segments(np.stack([np.c_[X[E[:, 0]], Y[E[:, 0]]], np.c_[X[E[:, 1]], Y[E[:, 1]]]], axis=1))
         c = cols.copy()
-        c[:, 3] = 0.35 + 0.6 * np.clip(depth, 0, 1)
+        c[:, 3] = 0.4 + 0.6 * np.clip(depth, 0, 1)
         c[seeds, 3] = 0.75 + 0.25 * np.clip(depth[seeds], 0, 1)   # seeds stay readable at the back
         dots.set_offsets(np.c_[X, Y][order])
         dots.set_sizes((base * persp ** 2)[order])
@@ -183,7 +222,7 @@ def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12
             t.set_alpha(0.35 + 0.65 * float(np.clip(depth[i], 0, 1)))
         fig.canvas.draw()
         rgb = np.asarray(fig.canvas.buffer_rgba())[:, :, :3]
-        images.append(Image.fromarray(rgb).convert("P", palette=Image.ADAPTIVE, colors=255))
+        images.append(Image.fromarray(rgb).quantize(palette=palette, dither=Image.Dither.NONE))
     plt.close(fig)
 
     os.makedirs(project.path("reports"), exist_ok=True)
@@ -198,5 +237,5 @@ def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12
 
 
 def cmd(project: Project, a):
-    render(project, frames=a.frames, fps=a.fps, n_labels=a.labels, max_threads=a.threads, lang=a.lang,
+    render(project, frames=a.frames, fps=a.fps, n_labels=a.labels, max_threads=a.threads, links=a.links, lang=a.lang,
            width=a.width, height=a.height)

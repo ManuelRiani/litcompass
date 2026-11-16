@@ -94,7 +94,7 @@ Spring layout in 3D (networkx, fixed seed) on the citation graph, with links ins
 form clouds. Each frame rotates the cloud around the vertical axis with a fixed tilt and a perspective projection
 drawn with matplotlib 2D collections (depth sorted, nearer = brighter and bigger): about 1 s per frame for ~4000
 papers. Default 96 frames at 10 fps: one turn in ~10 s, ~2 minutes of rendering, a GIF of ~10–12 MB.
-Seeds are drawn as white dots. Colors: the validated 8-hue categorical palette (dark-mode steps),
+Seeds are drawn as white dots. Lines: not every citation (a dense graph turns into fog) but, for each paper, its 2 closest links (same thread first, then most shared neighbours), `--links K` to change. The GIF uses a fixed palette (each hue blended with the surface at 18 opacities, plus grays) so the thread colors stay exact. Colors: the validated 8-hue categorical palette (dark-mode steps),
 assigned to the 8 largest threads in fixed order; smaller threads fold into "other threads" (more hues would not be
 distinguishable). Runs automatically when a run ends saturated or at the cap (`--no-render` to skip).
 
