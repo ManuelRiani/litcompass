@@ -1,12 +1,12 @@
 """3D animation of the citation graph: a rotating force layout with the research threads as legend.
 
-    python -m litcompass render [--frames 72] [--fps 15] [--labels 12] [--threads 8] [--lang en|it]
+    python -m litcompass render [--frames 96] [--fps 10] [--labels 12] [--threads 8] [--lang en|it]
 
 Writes reports/graph3d.gif (the rotation) and reports/graph3d.png (one still). Runs automatically at the end of
 the research, when a run stops because the graph is saturated or at its size cap.
 
 Encoding: one dot per paper, colored by research thread (the 8 largest threads get a hue, the rest are grouped as
-"other"), size proportional to the citations received inside the graph; white ring = seed; the most central papers
+"other"), size proportional to the citations received inside the graph; white dots = seeds; the most central papers
 (PageRank) are labelled "Author Year". Thread names come from threads.yaml (`litcompass threads set`), otherwise
 from their automatic terms.
 """
@@ -29,7 +29,7 @@ SURFACE = "#1a1a19"
 TEXT, TEXT2, MUTED = "#f0efec", "#c3c2b7", "#8b8a83"
 SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767"]
 OTHER = "#5f5e59"
-EDGE = "#c3c2b7"
+EDGE = "#8b8a83"   # darker than the white seeds, so they stand out
 
 STRINGS = {
     "en": {"papers": "papers", "citations": "citations", "threads": "threads", "other": "other threads",
@@ -70,7 +70,7 @@ def rotation(theta: float, tilt: float = math.radians(18)) -> np.ndarray:
     return rx @ ry
 
 
-def render(project: Project, frames: int = 72, fps: int = 15, n_labels: int = 12, max_threads: int = 8,
+def render(project: Project, frames: int = 96, fps: int = 10, n_labels: int = 12, max_threads: int = 8,
            lang: str = "", width: int = 900, height: int = 600, quiet: bool = False) -> str | None:
     import matplotlib
     matplotlib.use("Agg")
@@ -111,8 +111,10 @@ def render(project: Project, frames: int = 72, fps: int = 15, n_labels: int = 12
     P = np.array([pos[d] for d in nodes])
     indeg = np.array([G.in_degree(d) for d in nodes], dtype=float)
     base = 6 + 90 * np.sqrt(indeg / max(indeg.max(), 1))
-    cols = np.array([matplotlib.colors.to_rgba(color_of.get(cluster[d], OTHER)) for d in nodes])
     seeds = np.array([bool(st.nodes[d].get("seed")) for d in nodes])
+    base[seeds] = np.maximum(base[seeds], 45)
+    cols = np.array([matplotlib.colors.to_rgba(TEXT if seeds[i] else color_of.get(cluster[d], OTHER))
+                     for i, d in enumerate(nodes)])
     idx = {d: i for i, d in enumerate(nodes)}
     E = np.array([(idx[a], idx[b]) for a, b in G.edges], dtype=int).reshape(-1, 2)
     edge_alpha = float(np.clip(9.0 / math.sqrt(max(len(E), 1)), 0.05, 0.3))
@@ -150,7 +152,7 @@ def render(project: Project, frames: int = 72, fps: int = 15, n_labels: int = 12
         lg.text(0.12, y, f"{S['other']}  ({n_other})", color=TEXT2, fontsize=8.5, va="center")
         y -= step
     y -= step * 0.4
-    lg.scatter([0.065], [y], s=70, facecolors="none", edgecolors=TEXT, linewidths=1.3)
+    lg.scatter([0.065], [y], s=55, color=TEXT, edgecolors="none")
     lg.text(0.12, y, S["seed"], color=TEXT2, fontsize=8.5, va="center")
     lg.text(0.04, 0.075, S["size"], color=MUTED, fontsize=7.2, va="top")
     lg.text(0.04, 0.045, S["labels"].format(n=len(top)), color=MUTED, fontsize=7.2, va="top")
@@ -158,7 +160,6 @@ def render(project: Project, frames: int = 72, fps: int = 15, n_labels: int = 12
     lines = LineCollection([], colors=EDGE, linewidths=0.4, alpha=edge_alpha)
     ax.add_collection(lines)
     dots = ax.scatter([], [], s=[], edgecolors="none")
-    rings = ax.scatter([], [], s=[], facecolors="none", edgecolors=TEXT, linewidths=1.2)
     texts = [ax.text(0, 0, t, color=TEXT2, fontsize=7.5, ha="center", va="bottom") for t in tags]
 
     D = 3.4   # camera distance
@@ -173,12 +174,10 @@ def render(project: Project, frames: int = 72, fps: int = 15, n_labels: int = 12
             lines.set_segments(np.stack([np.c_[X[E[:, 0]], Y[E[:, 0]]], np.c_[X[E[:, 1]], Y[E[:, 1]]]], axis=1))
         c = cols.copy()
         c[:, 3] = 0.35 + 0.6 * np.clip(depth, 0, 1)
+        c[seeds, 3] = 0.75 + 0.25 * np.clip(depth[seeds], 0, 1)   # seeds stay readable at the back
         dots.set_offsets(np.c_[X, Y][order])
         dots.set_sizes((base * persp ** 2)[order])
         dots.set_facecolors(c[order])
-        sm = np.where(seeds)[0]
-        rings.set_offsets(np.c_[X[sm], Y[sm]] if len(sm) else np.empty((0, 2)))
-        rings.set_sizes(base[sm] * persp[sm] ** 2 * 2.2 + 30)
         for t, i in zip(texts, top):
             t.set_position((X[i], Y[i] + 0.035 + 0.004 * math.sqrt(base[i])))
             t.set_alpha(0.35 + 0.65 * float(np.clip(depth[i], 0, 1)))

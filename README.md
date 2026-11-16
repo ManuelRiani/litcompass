@@ -99,7 +99,7 @@ python -m litcompass mark 10.xxxx/yyyy --as read               # track progress
    co-citation for research threads, labels from distinctive title terms.
 6. **3D animation**: when the graph is finished, `render` draws it as a rotating 3D force layout (an
    Obsidian-like graph view, as a GIF): one dot per paper, colored by thread, sized by citations inside the graph,
-   seeds ringed, the most central papers labelled, the threads listed at the side. Give the threads readable names
+   seeds in white, the most central papers labelled, the threads listed at the side. Give the threads readable names
    with `threads set K "Name"` (the agent proposes them).
 7. **Study plan**: reviews/books for orientation, the most central papers in chronological order, the key papers of
    each thread, and the recent papers the graph already cites most. `--focus REGEX` bends everything towards a

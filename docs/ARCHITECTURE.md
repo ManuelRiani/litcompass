@@ -93,7 +93,8 @@ each name is stored with the automatic terms of its thread and applied only whil
 Spring layout in 3D (networkx, fixed seed) on the citation graph, with links inside a thread weighted ×3 so threads
 form clouds. Each frame rotates the cloud around the vertical axis with a fixed tilt and a perspective projection
 drawn with matplotlib 2D collections (depth sorted, nearer = brighter and bigger): about 1 s per frame for ~4000
-papers, 72 frames ≈ 1–2 minutes, a GIF of ~8 MB. Colors: the validated 8-hue categorical palette (dark-mode steps),
+papers. Default 96 frames at 10 fps: one turn in ~10 s, ~2 minutes of rendering, a GIF of ~10–12 MB.
+Seeds are drawn as white dots. Colors: the validated 8-hue categorical palette (dark-mode steps),
 assigned to the 8 largest threads in fixed order; smaller threads fold into "other threads" (more hues would not be
 distinguishable). Runs automatically when a run ends saturated or at the cap (`--no-render` to skip).
 

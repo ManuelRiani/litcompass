@@ -116,8 +116,8 @@ def parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=threads.cmd)
 
     s = sub.add_parser("render", help="3D rotating animation of the graph -> reports/graph3d.gif")
-    s.add_argument("--frames", type=int, default=72)
-    s.add_argument("--fps", type=int, default=15)
+    s.add_argument("--frames", type=int, default=96, help="frames per full turn (more = slower, smoother)")
+    s.add_argument("--fps", type=int, default=10)
     s.add_argument("--labels", type=int, default=12, help="papers labelled 'Author Year' (top PageRank)")
     s.add_argument("--threads", type=int, default=8, help="threads with their own color (max 8)")
     s.add_argument("--lang", default="", help="legend language: en, it (default: project.language)")
