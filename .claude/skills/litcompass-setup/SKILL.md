@@ -26,7 +26,7 @@ Ask at most 5 questions, in one message, skipping what the user already said:
 python -m litcompass init <slug> --title "<short title>" --description "<2-5 line brief>"
 ```
 Then edit `projects/<slug>/project.yaml`: fill `project.description` (concrete: object, methods, constraints),
-`goals` (list) and `background` from the answers. Show the user the brief in 3 lines and ask for corrections.
+`goals` (list) and `background` from the answers, and set `project.language` to the user's language (`en`, `it`). Show the user the brief in 3 lines and ask for corrections.
 
 ## 3. Seeds (verified, never from memory)
 
@@ -64,7 +64,6 @@ Then edit `projects/<slug>/project.yaml`: fill `project.description` (concrete: 
    Repeat until the samples look right (usually 1–3 rounds).
 4. Agree the size: `limits.max_core_nodes` is the main stop (1000–3000 for a study project, more for a thesis-level
    map). The graph grows wave by wave until that size or until the filter admits nothing more (saturated).
-   `max_depth` stays `null` unless the user wants a hard perimeter (e.g. 1 = only direct neighbours of the seeds).
 
 ## 6. Hand over
 

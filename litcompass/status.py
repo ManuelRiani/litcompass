@@ -7,7 +7,7 @@ from __future__ import annotations
 import random
 
 from . import journal, progress
-from .config import Project, depth_limit
+from .config import Project
 from .store import Store
 
 
@@ -15,7 +15,6 @@ def cmd(project: Project, a):
     cfg = project.load_config()
     st = Store.load(project.data_dir)
     lim, rel = cfg["limits"], cfg["relevance"]
-    maxd = depth_limit(lim)
     core = st.count("core")
     print(f"# Status — {cfg['project'].get('title') or project.slug} ({project.slug})\n")
     print(f"- seeds: {len(cfg['seeds'])}")
@@ -24,8 +23,7 @@ def cmd(project: Project, a):
         print("\nNext: `python -m litcompass check --fetch`, then `python -m litcompass run --max-minutes 15`")
         return
     expandable = sum(1 for n in st.nodes.values()
-                     if n.get("status") == "core" and not n.get("expanded")
-                     and (maxd is None or n.get("depth", 0) < maxd))
+                     if n.get("status") == "core" and not n.get("expanded"))
     links = [st.core_links(d) for d, n in st.nodes.items() if n.get("status") == "candidate"]
     linked2 = sum(1 for x in links if x >= 2)
     linked1 = sum(1 for x in links if x >= 1)
@@ -39,9 +37,8 @@ def cmd(project: Project, a):
         phase, nxt = (f"building ({expandable} to expand, {linked1} candidates to screen)",
                       "`python -m litcompass run` again (each run resumes where the last one stopped)")
     else:
-        phase = "saturated: no admissible paper left at the frontier" if maxd is None else f"complete at max_depth {maxd}"
+        phase = "saturated: no admissible paper left at the frontier"
         nxt = ("`python -m litcompass study-plan`; later, `python -m litcompass run --refresh 50` to catch new papers")
-    print(f"- limits: {cap} papers, " + ("no depth limit" if maxd is None else f"max_depth {maxd}"))
     print(f"- phase: {phase}")
 
     waves = st.waves()
@@ -52,7 +49,8 @@ def cmd(project: Project, a):
         for w in waves:
             rate = f"{100 * w['rate']:.1f}%" if w["rate"] is not None else "—"
             print(f"| {w['wave']} | {w['core']} | {w['expanded']} | {w['rejected']} | {w['candidate']} | {rate} |")
-        screened = [w for w in waves if w["wave"] > 0 and w["screened"] >= 100]
+        # only waves fully screened: a wave cut by the cap holds its best connected papers and overstates the rate
+        screened = [w for w in waves if w["wave"] > 0 and w["screened"] >= 100 and w["candidate"] == 0]
         if screened and screened[-1]["rate"] is not None and screened[-1]["rate"] < 0.02:
             print(f"\nWave {screened[-1]['wave']} admits under 2% of what it screens: the frontier is saturating "
                   "(fine), or the filter is too strict (check the best rejected with --samples).")

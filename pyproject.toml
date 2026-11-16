@@ -9,7 +9,7 @@ description = "Build a citation graph of the literature around your project and 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["requests>=2.31", "PyYAML>=6.0", "networkx>=3.2", "numpy>=1.26", "scipy>=1.11", "truststore>=0.9"]
+dependencies = ["requests>=2.31", "PyYAML>=6.0", "networkx>=3.2", "numpy>=1.26", "scipy>=1.11", "truststore>=0.9", "matplotlib>=3.7"]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]

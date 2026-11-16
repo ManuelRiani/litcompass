@@ -64,7 +64,6 @@ def project(tmp_path, monkeypatch):
     cfg = yaml.safe_load(open(p.config_path))
     cfg["seeds"] = [{"doi": "10.1/s1", "note": "seed"}]
     cfg["relevance"] = REL
-    cfg["limits"]["max_depth"] = 2
     cfg["report"]["min_cluster_size"] = 2
     yaml.safe_dump(cfg, open(p.config_path, "w"))
     return p
@@ -99,7 +98,7 @@ def test_seed_yaml_editing_keeps_comments():
 
 def test_full_pipeline(project):
     reason = Runner(project, 1, sources=FakeSources()).run()
-    assert reason == "complete"
+    assert reason == "saturated"
     from litcompass.store import Store
     st = Store.load(project.data_dir)
     core = st.core()
@@ -132,8 +131,7 @@ def _set_limits(project, **lim):
     yaml.safe_dump(cfg, open(project.config_path, "w"))
 
 
-def test_no_depth_limit_saturates(project):
-    _set_limits(project, max_depth=None)
+def test_waves_saturate(project):
     assert Runner(project, 1, sources=FakeSources()).run() == "saturated"
     from litcompass.store import Store
     st = Store.load(project.data_dir)
@@ -143,7 +141,7 @@ def test_no_depth_limit_saturates(project):
 
 
 def test_node_cap_keeps_admissible_papers_pending(project):
-    _set_limits(project, max_depth=None, max_core_nodes=3)
+    _set_limits(project, max_core_nodes=3)
     assert Runner(project, 1, sources=FakeSources()).run() == "max_core_nodes"
     from litcompass.store import Store
     st = Store.load(project.data_dir)
@@ -165,3 +163,16 @@ def test_journal_files(project):
     assert journal.last_entries(project, 1).startswith("## 2026-11-17")
     os.remove(project.path("WIP.md"))
     assert journal.ensure(project) == [project.path("WIP.md")]
+
+
+def test_threads_and_render(project):
+    Runner(project, 1, sources=FakeSources()).run()
+    report.build_report(project, quiet=True)
+    from litcompass import render, threads
+    th = [t for t in threads.summary(project) if t["cluster"] > 0]
+    assert th
+    threads.save(project, {th[0]["terms"]: "Widget core"})
+    rows = report.load_table(project)                      # threads.yaml is newer: table is rebuilt
+    assert any(r["cluster_name"] == "Widget core" for r in rows)
+    out = render.render(project, frames=3, quiet=True, lang="it")
+    assert out and os.path.getsize(out) > 0 and os.path.exists(project.path("reports", "graph3d.png"))

@@ -45,11 +45,11 @@ AGENTS.md CLAUDE.md .github/copilot-instructions.md   agent instructions
    2. screen every candidate discovered by that wave, best connected first (screening after the whole wave is
       expanded means each candidate is judged with all its links known);
    3. move to the next wave.
-3. Stop conditions: `max_core_nodes` (the main one: the size of the graph), **saturation** (no candidate passes the
-   filter, the frontier closes by itself), or the optional `max_depth`. Because waves are processed in order, a graph
+3. Stop conditions: `max_core_nodes` (the size of the graph) or **saturation** (no candidate passes the filter, the
+   frontier closes by itself). Because waves are processed in order, a graph
    cut by the cap contains the nearest papers, and in the last wave the best connected ones. Admissible papers found
    after the cap stay `candidate`: raising the cap resumes from them.
-4. Why no depth limit by default: citation distance is not topical distance. A narrow topic can be exhausted at
+4. Why no depth limit (removed in 0.2): citation distance is not topical distance. A narrow topic can be exhausted at
    distance 2 while relevant work sits at 3; a broad topic explodes at 2 (×8 per wave in the original MEMS graph).
    Relevance is the filter's job; size is the cap's. The depth is still tracked, as a drift indicator: `status`
    prints admitted/screened per wave and warns when the rate jumps up (drift) or falls under 2% (saturation).
@@ -83,6 +83,19 @@ to the user ("which term let this in?"), and tunable in minutes with `status --s
   Clusters smaller than `min_cluster_size` go to group 0. Labels: c-TF-IDF on title uni/bigrams; words present in
   > 30% of all titles and `generic_terms` are excluded. Numbering can change between runs.
 - `kind`: `review` (OpenAlex type or title pattern), `book` (book/chapter types), `paper`.
+
+Determinism: nodes, edges and title terms are processed in sorted order, so the same graph always gives the same
+clusters, numbers and labels (Python randomizes set order per process). This is what lets `threads.yaml` names stick:
+each name is stored with the automatic terms of its thread and applied only while they match.
+
+## 5b. 3D animation (`render.py`)
+
+Spring layout in 3D (networkx, fixed seed) on the citation graph, with links inside a thread weighted ×3 so threads
+form clouds. Each frame rotates the cloud around the vertical axis with a fixed tilt and a perspective projection
+drawn with matplotlib 2D collections (depth sorted, nearer = brighter and bigger): about 1 s per frame for ~4000
+papers, 72 frames ≈ 1–2 minutes, a GIF of ~8 MB. Colors: the validated 8-hue categorical palette (dark-mode steps),
+assigned to the 8 largest threads in fixed order; smaller threads fold into "other threads" (more hues would not be
+distinguishable). Runs automatically when a run ends saturated or at the cap (`--no-render` to skip).
 
 ## 6. Study plan (`study_plan.py`)
 

@@ -6,7 +6,8 @@ import logging
 import sys
 
 from . import __version__
-from . import check, inspect_cmd, journal, progress, reading_list, report, rescore, run, seeds, status, study_plan, vocab
+from . import (check, inspect_cmd, journal, progress, reading_list, render, report, rescore, run, seeds, status,
+               study_plan, threads, vocab)
 from .config import ConfigError, create, list_projects, active_slug, resolve, set_active
 from .sources import SourceError
 
@@ -98,6 +99,7 @@ def parser() -> argparse.ArgumentParser:
                    help="first re-download the citing papers of the K most central papers (maintenance)")
     s.add_argument("--min-age-days", type=int, default=30)
     s.add_argument("--no-report", action="store_true")
+    s.add_argument("--no-render", action="store_true", help="skip the 3D animation when the graph is finished")
     s.set_defaults(fn=run.cmd)
 
     s = sub.add_parser("rescore", help="re-apply the relevance filter offline")
@@ -106,6 +108,22 @@ def parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("report", help="rebuild overview.md and exports")
     s.set_defaults(fn=report.cmd)
+
+    s = sub.add_parser("threads", help="list the research threads, or name one: threads set K \"Name\"")
+    s.add_argument("action", nargs="?", choices=["list", "set"], default="list")
+    s.add_argument("k", nargs="?", type=int)
+    s.add_argument("name", nargs="?")
+    s.set_defaults(fn=threads.cmd)
+
+    s = sub.add_parser("render", help="3D rotating animation of the graph -> reports/graph3d.gif")
+    s.add_argument("--frames", type=int, default=72)
+    s.add_argument("--fps", type=int, default=15)
+    s.add_argument("--labels", type=int, default=12, help="papers labelled 'Author Year' (top PageRank)")
+    s.add_argument("--threads", type=int, default=8, help="threads with their own color (max 8)")
+    s.add_argument("--lang", default="", help="legend language: en, it (default: project.language)")
+    s.add_argument("--width", type=int, default=900)
+    s.add_argument("--height", type=int, default=600)
+    s.set_defaults(fn=render.cmd)
 
     s = sub.add_parser("status", help="graph status and next step")
     s.add_argument("--samples", type=int, default=0)

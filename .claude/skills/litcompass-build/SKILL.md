@@ -16,7 +16,7 @@ Select the project first: `python -m litcompass projects` (`use <slug>` or `-p <
 |---|---|
 | building | continue with runs (below) |
 | stopped at max_core_nodes | ask the user: raise `limits.max_core_nodes`, or tighten the filter and `rescore` |
-| saturated / complete at max_depth | the graph is done: hand over to `litcompass-study`; maintenance with `--refresh` |
+| saturated | the graph is done: name the threads and render the animation (below), then `litcompass-study` |
 | runs ending with `error:` | read the message; network errors are retried next run; a suspended OpenAlex falls back to Crossref |
 
 ## Continue building
@@ -54,9 +54,19 @@ fields; `weak_cap` limits generic words. A seed that stops scoring is a sign the
 
 - **Seeds**: `seeds search` → `seeds add DOI` / `seeds remove DOI`, then `rescore` and a run.
 - **Size**: `limits.max_core_nodes` is the size of the graph; raise it if the build stops at the cap and the last
-  wave still admits relevant papers. `limits.max_depth` (default `null`) is only for a hard perimeter.
+  wave still admits relevant papers.
 - **Threads too coarse/fine**: `report.resolution` (higher = more, smaller threads), then `python -m litcompass report`.
   Labels polluted by the field's name: add it to `report.generic_terms`.
+
+## When the graph is finished (saturated or at the cap)
+
+The run that finishes the graph also renders `reports/graph3d.gif` (rotating 3D graph, threads as legend). Then:
+1. `python -m litcompass threads` lists each thread with its automatic terms, size, years and top papers.
+2. Propose a short name for each colored thread (the 8 largest), in the user's language, based **only** on those
+   terms and titles (2–4 words, e.g. "Temperature compensation"). Show the list; the user corrects it.
+3. `python -m litcompass threads set K "Name"` for each accepted name.
+4. `python -m litcompass render` redraws the animation with the names; give the user the path of the GIF.
+Names are kept while the threads stay the same; after big changes to the graph, check them again with `threads`.
 
 ## Maintenance
 

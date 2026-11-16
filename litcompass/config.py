@@ -25,7 +25,6 @@ TEMPLATE = os.path.join(ROOT, "templates", "project.yaml")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]{0,63}$")
 
 DEFAULT_LIMITS = {
-    "max_depth": None,   # None = no depth limit: waves continue until max_core_nodes or saturation
     "max_minutes": 30,
     "max_core_nodes": 3000,
     "checkpoint_minutes": 5,
@@ -40,12 +39,15 @@ class ConfigError(Exception):
     pass
 
 
-def depth_limit(limits: dict) -> int | None:
-    """limits.max_depth as an int, or None when the expansion has no depth limit."""
-    v = limits.get("max_depth")
-    if v is None or str(v).strip().lower() in ("", "none", "null"):
-        return None
-    return int(v)
+_warned: set[str] = set()
+
+
+def _warn_obsolete(slug: str, limits: dict):
+    if "max_depth" in limits and slug not in _warned:
+        _warned.add(slug)
+        import sys
+        print(f"note: limits.max_depth in {slug}/project.yaml is no longer used (the graph grows until "
+              "max_core_nodes or saturation): you can delete that line", file=sys.stderr)
 
 
 def projects_home() -> str:
@@ -100,7 +102,9 @@ class Project:
             cfg = yaml.safe_load(f) or {}
         cfg.setdefault("project", {})
         cfg["seeds"] = cfg.get("seeds") or []
+        _warn_obsolete(self.slug, cfg.get("limits") or {})
         cfg["limits"] = {**DEFAULT_LIMITS, **(cfg.get("limits") or {})}
+        cfg["limits"].pop("max_depth", None)
         rel = cfg.get("relevance") or {}
         cfg["relevance"] = {**DEFAULT_RELEVANCE, **rel, "terms": rel.get("terms") or {}}
         cfg["report"] = {**DEFAULT_REPORT, **(cfg.get("report") or {})}

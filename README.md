@@ -93,11 +93,15 @@ python -m litcompass mark 10.xxxx/yyyy --as read               # track progress
    (title counts double, negative weights for off-topic fields), combined with how many graph papers it is linked
    to. A rejected paper can come back later if it becomes well connected.
 4. It stops at `max_core_nodes` papers (the size you want) or when the filter admits nothing more at the frontier
-   (*saturated*). An optional `max_depth` caps the number of waves. `status` shows the admission rate per wave, to
-   spot topic drift. Runs are resumable.
+   (*saturated*). There is no depth limit: size is set by the cap, relevance by the filter. `status` shows the
+   admission rate per wave, to spot topic drift. Runs are resumable.
 5. **Report**: PageRank for importance, Louvain clustering on direct citation + bibliographic coupling +
    co-citation for research threads, labels from distinctive title terms.
-6. **Study plan**: reviews/books for orientation, the most central papers in chronological order, the key papers of
+6. **3D animation**: when the graph is finished, `render` draws it as a rotating 3D force layout (an
+   Obsidian-like graph view, as a GIF): one dot per paper, colored by thread, sized by citations inside the graph,
+   seeds ringed, the most central papers labelled, the threads listed at the side. Give the threads readable names
+   with `threads set K "Name"` (the agent proposes them).
+7. **Study plan**: reviews/books for orientation, the most central papers in chronological order, the key papers of
    each thread, and the recent papers the graph already cites most. `--focus REGEX` bends everything towards a
    sub-topic with personalized PageRank.
 
@@ -114,6 +118,8 @@ clone). Set `LITCOMPASS_HOME` to keep projects elsewhere, e.g. in a private repo
 | `DIARY.md` · `WIP.md` | session journal: what was done, what is open (written by the agent at every close) |
 | `reports/overview.md` | the map |
 | `reports/study_plan.md` | the study plan, with checkboxes |
+| `reports/graph3d.gif` · `graph3d.png` | rotating 3D view of the graph, and a still |
+| `threads.yaml` | readable names of the research threads |
 | `exports/core_papers.csv` · `exports/core.graphml` | table and graph for Excel, Gephi, Cytoscape, networkx |
 | `data/` | all papers seen (admitted, rejected, pending) and all citations — managed by the code |
 | `study/progress.csv` | what you read, with notes |

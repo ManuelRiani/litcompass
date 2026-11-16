@@ -5,6 +5,7 @@
 
 project:
   title: "Piezoelectric bulk-mode MEMS resonators"
+  language: "en"
   description: |
     Design and simulation of piezoelectric bulk acoustic wave (BAW) and width-extensional / contour-mode MEMS
     resonators in the MHz range: quality factor and loss mechanisms (anchor loss, thermoelastic damping, Akhiezer),
@@ -38,7 +39,6 @@ seeds:
 
 limits:
   max_core_nodes: 6000
-  max_depth: null           # the original private graph used 2: 17 seeds -> 422 -> 3393 papers
   max_minutes: 30
   checkpoint_minutes: 5
   forward_max_cited_by: 3000

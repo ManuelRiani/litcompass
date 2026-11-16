@@ -59,16 +59,16 @@ def cite(n: dict, doi: str) -> str:
 def similarity_graph(st: Store, core: set[str], G: nx.DiGraph) -> nx.Graph:
     """Direct citation + bibliographic coupling + co-citation."""
     U = nx.Graph()
-    U.add_nodes_from(core)
+    U.add_nodes_from(sorted(core))
     for a, b in G.edges:
         U.add_edge(a, b, weight=U.get_edge_data(a, b, {"weight": 0})["weight"] + 1.0)
     cited_by_core, citing_core = defaultdict(list), defaultdict(list)
-    for a, b in st.edges:
+    for a, b in sorted(st.edges):
         if a in core:
             cited_by_core[b].append(a)
         if b in core:
             citing_core[a].append(b)
-    for group in list(cited_by_core.values()) + list(citing_core.values()):
+    for _, group in sorted(cited_by_core.items()) + sorted(citing_core.items()):
         g = sorted(set(group))
         if 2 <= len(g) <= MAX_GROUP:
             w = 1.0 / (len(g) - 1)
@@ -81,8 +81,8 @@ def similarity_graph(st: Store, core: set[str], G: nx.DiGraph) -> nx.Graph:
 
 def cluster_labels(st: Store, core: set[str], cluster: dict[str, int], extra_generic: set[str]) -> dict[int, list[str]]:
     tf = defaultdict(Counter)
-    for d in core:
-        tf[cluster[d]].update(set(tokens(st.nodes[d].get("title", ""))))
+    for d in sorted(core):
+        tf[cluster[d]].update(sorted(set(tokens(st.nodes[d].get("title", "")))))
     total = Counter()
     for c in tf.values():
         total.update(c)
@@ -100,7 +100,7 @@ def cluster_labels(st: Store, core: set[str], cluster: dict[str, int], extra_gen
             p_out = (total[t] - n + 0.5) / rest
             sc[t] = p_in * math.log(p_in / p_out)
         out = []
-        for t in sorted(sc, key=lambda t: -sc[t]):   # avoid near-duplicates such as "thin" + "thin films"
+        for t in sorted(sc, key=lambda t: (-sc[t], t)):   # avoid near-duplicates such as "thin" + "thin films"
             if any(t in o or o in t for o in out):
                 continue
             out.append(t)
@@ -131,6 +131,11 @@ def build_report(project: Project, quiet: bool = False) -> str | None:
     for d in core:
         cluster.setdefault(d, 0)   # 0 = small groups / not linked
     labels = cluster_labels(st, core, cluster, {t.lower() for t in rcfg.get("generic_terms") or []})
+    from .threads import load as load_names, terms_key
+    named = load_names(project)
+    terms = {k: terms_key(v) for k, v in labels.items()}
+    names = {k: named.get(terms[k], "") for k in labels if k}
+    display = {k: names.get(k) or terms.get(k, "") for k in labels}
     topics = defaultdict(Counter)
     for d in core:
         if st.nodes[d].get("topic"):
@@ -141,13 +146,15 @@ def build_report(project: Project, quiet: bool = False) -> str | None:
     os.makedirs(project.path("reports"), exist_ok=True)
     with open(project.path("exports", "core_papers.csv"), "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["doi", "title", "year", "venue", "authors", "kind", "type", "cluster", "cluster_label", "pagerank",
+        w.writerow(["doi", "title", "year", "venue", "authors", "kind", "type", "cluster", "cluster_label",
+                    "cluster_name", "cluster_terms", "pagerank",
                     "in_graph_citations", "cited_by_global", "depth", "seed", "relevance_score", "openalex_topic",
                     "oa_url"])
-        for d in sorted(core, key=lambda d: -pr[d]):
+        for d in sorted(core, key=lambda d: (-pr[d], d)):
             n = st.nodes[d]
             w.writerow([d, n.get("title", ""), n.get("year", ""), n.get("venue", ""), "; ".join(n.get("authors") or []),
-                        kind(n), n.get("type", ""), cluster[d], ", ".join(labels.get(cluster[d], [])[:4]),
+                        kind(n), n.get("type", ""), cluster[d], display.get(cluster[d], ""),
+                        names.get(cluster[d], ""), terms.get(cluster[d], ""),
                         f"{pr[d]:.6f}", indeg.get(d, 0), n.get("cited_by", 0), n.get("depth", ""),
                         int(bool(n.get("seed"))), n.get("score", ""), n.get("topic", ""), n.get("oa_url", "")])
     for d in G.nodes:
@@ -175,7 +182,7 @@ def build_report(project: Project, quiet: bool = False) -> str | None:
 
     L += ["## Foundational papers", "",
           "Sorted by PageRank on the internal graph: being cited by papers that are themselves central weighs more.", ""]
-    for i, d in enumerate(sorted(core, key=lambda d: -pr[d])[:30], 1):
+    for i, d in enumerate(sorted(core, key=lambda d: (-pr[d], d))[:30], 1):
         tag = " · **seed**" if st.nodes[d].get("seed") else ""
         L.append(f"{i}. {cite(st.nodes[d], d)} — cited by {indeg.get(d, 0)} graph papers{tag}")
     L.append("")
@@ -196,7 +203,8 @@ def build_report(project: Project, quiet: bool = False) -> str | None:
         members = sorted((d for d in core if cluster[d] == k), key=lambda d: -pr[d])
         if not members:
             continue
-        name = ", ".join(labels.get(k, [])[:5]) or "—"
+        auto = ", ".join(labels.get(k, [])[:5]) or "—"
+        name = f"{names[k]} — {auto}" if names.get(k) else auto
         L += [f"### {k}. {name}" if k else "### Not yet grouped", ""]
         yrs = [st.nodes[d].get("year") for d in members if st.nodes[d].get("year")]
         L.append(f"{len(members)} papers" + (f", {min(yrs)}–{max(yrs)}" if yrs else "") + ".")
@@ -227,7 +235,8 @@ def load_table(project: Project) -> list[dict]:
     """exports/core_papers.csv, regenerated if missing or older than the graph data."""
     p = project.path("exports", "core_papers.csv")
     nodes = os.path.join(project.data_dir, "nodes.jsonl")
-    if not os.path.exists(p) or (os.path.exists(nodes) and os.path.getmtime(nodes) > os.path.getmtime(p)):
+    inputs = [nodes, project.config_path, project.path("threads.yaml")]
+    if not os.path.exists(p) or any(os.path.exists(i) and os.path.getmtime(i) > os.path.getmtime(p) for i in inputs):
         build_report(project, quiet=True)
     if not os.path.exists(p):
         return []

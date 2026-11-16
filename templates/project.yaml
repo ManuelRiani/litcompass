@@ -3,6 +3,7 @@
 
 project:
   title: "__TITLE__"
+  language: "en"            # language of generated texts such as the 3D animation legend: en, it
   # The project brief: what you are working on and why you need the literature. Agents read it to choose seeds,
   # build the vocabulary and tailor the study advice. Be concrete: object, methods, constraints, decisions ahead.
   description: |
@@ -20,8 +21,7 @@ seeds: []
 # The graph grows in waves (distance from the seeds), nearest wave first, until it reaches max_core_nodes or the
 # relevance filter admits nothing more ("saturated"). `python -m litcompass status` shows the admission rate per wave.
 limits:
-  max_core_nodes: 3000      # size of the graph: the main stop
-  max_depth: null           # optional hard limit on waves (e.g. 2); null = no limit
+  max_core_nodes: 3000      # size of the graph: the stop
   max_minutes: 30           # duration of one run; runs resume where the previous one stopped
   checkpoint_minutes: 5     # intermediate save
   forward_max_cited_by: 3000  # papers cited more than this (seeds excluded) are hubs: their citing papers are skipped

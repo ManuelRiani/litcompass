@@ -7,8 +7,8 @@ Loop, breadth-first by waves (wave = distance from the seeds):
   2. screen every candidate it discovered (metadata + relevance filter), best connected first
   3. move to the next wave
 Stops when time is up, when the node cap (limits.max_core_nodes) is hit, or when nothing is left to screen or expand:
-"saturated", the relevance filter has closed the frontier. The optional limits.max_depth stops the expansion after a
-fixed number of waves instead ("complete"); by default there is no depth limit.
+"saturated", the relevance filter has closed the frontier. There is no depth limit: the size is set by the cap, the
+relevance by the filter. When the graph is finished (saturated or at the cap) the 3D animation is rendered.
 
 --refresh K: before the loop, re-download the citing papers of the K most central graph papers whose last
 refresh is older than --min-age-days. This is the maintenance mode: once the graph is complete it catches new work.
@@ -19,7 +19,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from .config import Project, depth_limit
+from .config import Project
 from .relevance import SKIP_TYPES, Relevance
 from .sources import Budget, Http, Sources, SourceError
 from .store import Store
@@ -36,7 +36,6 @@ class Runner:
         self.project = project
         self.cfg = project.load_config()
         lim = self.cfg["limits"]
-        self.max_depth = depth_limit(lim)   # None = no depth limit
         self.max_core = int(lim["max_core_nodes"])
         self.ckpt = float(lim["checkpoint_minutes"])
         self.forward_max = int(lim["forward_max_cited_by"])
@@ -79,8 +78,7 @@ class Runner:
         exp, cands = [], []
         for doi, n in self.st.nodes.items():
             s = n.get("status")
-            if s == "core" and not n.get("expanded") and \
-                    (self.max_depth is None or n.get("depth", 0) < self.max_depth):
+            if s == "core" and not n.get("expanded"):
                 exp.append((n.get("depth", 0), not n.get("seed"), -self.st.core_links(doi),
                             -(n.get("cited_by") or 0), doi))
             elif s == "candidate":
@@ -188,8 +186,7 @@ class Runner:
                      self.budget.requests, self.budget.elapsed_min())
 
     def run(self, refresh: int = 0, min_age_days: int = 30) -> str:
-        # nothing left to screen or expand: "saturated" (no depth limit) or "complete" (depth limit reached)
-        reason = "saturated" if self.max_depth is None else "complete"
+        reason = "saturated"   # nothing left to screen or expand: the filter has closed the frontier
         try:
             self.init_seeds()
             if refresh:
@@ -233,3 +230,11 @@ def cmd(project: Project, args):
     if not args.no_report:
         from . import report
         report.build_report(project)
+        if reason in ("saturated", "max_core_nodes") and not getattr(args, "no_render", False):
+            # end of the research: draw the graph
+            try:
+                from . import render
+                render.render(project)
+            except ImportError as e:
+                print(f"3D animation skipped ({e}): `python -m pip install --user matplotlib`, "
+                      "then `python -m litcompass render`")

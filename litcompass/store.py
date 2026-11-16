@@ -122,7 +122,7 @@ class Store:
     def core_digraph(self):
         import networkx as nx
         core = self.core()
-        G = nx.DiGraph()
-        G.add_nodes_from(core)
-        G.add_edges_from((a, b) for a, b in self.edges if a in core and b in core)
+        G = nx.DiGraph()   # sorted: node order drives Louvain and the layout, which must not vary between runs
+        G.add_nodes_from(sorted(core))
+        G.add_edges_from(sorted((a, b) for a, b in self.edges if a in core and b in core))
         return G
