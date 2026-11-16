@@ -47,6 +47,20 @@ The agent instructions (`AGENTS.md`, imported by `CLAUDE.md` and referenced by `
 forbid the agent from inventing papers: every DOI comes from a search result or from you, and every statement
 about a paper cites its DOI and whether it comes from the abstract or only the metadata.
 
+### Installing from a zip (no git), e.g. on a work PC
+
+1. Download the zip (GitHub → *Code* → *Download ZIP*) and extract it, e.g. to `C:\Users\<you>\AI_Systems\litcompass`.
+2. Keep your projects **outside** the code folder, so that a future zip can replace the code without touching your
+   data. In PowerShell, once (no admin rights needed), then restart VS Code:
+   ```powershell
+   [Environment]::SetEnvironmentVariable("LITCOMPASS_HOME", "C:\Users\<you>\AI_Systems\litcompass-projects", "User")
+   ```
+3. In the code folder: `python -m pip install --user -r requirements.txt` (use `py` if `python` is not found;
+   behind a company package mirror, use its index as usual). Check: `python -m litcompass --help`.
+4. Open the code folder in VS Code (*File → Open Folder*), Copilot Chat in **Agent** mode, type `/litcompass-setup`.
+
+To update: extract the new zip over (or in place of) the code folder. Your projects in `LITCOMPASS_HOME` are untouched.
+
 ## Quick start without an agent
 
 ```bash
